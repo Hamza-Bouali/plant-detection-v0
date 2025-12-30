@@ -53,7 +53,7 @@ Current implementation uses **hardcoded mock data** for:
 
 ## Backend API Integration
 
-### Classification API
+### Classification API (V1)
 The app connects to a FastAPI backend for disease classification:
 
 ```typescript
@@ -81,7 +81,44 @@ interface ClassificationResult {
 }
 ```
 
-**Note**: ngrok URLs change frequently - update `.env.local` when the backend URL changes.
+### Segmentation API (V2+A1)
+Severity analysis via image segmentation:
+
+```typescript
+// API endpoints
+/health          - GET  - Health check
+/predict         - POST - Multipart form-data file upload
+```
+
+**Configuration**: Set `NEXT_PUBLIC_SEGMENTATION_API_URL` in `.env.local`:
+```bash
+NEXT_PUBLIC_SEGMENTATION_API_URL=https://your-segmentation-ngrok-url.ngrok-free.app
+```
+
+**API Response Format**:
+```typescript
+interface SegmentationResult {
+  filename: string | null
+  severity: {
+    severity_score: number     // 0-100
+    Ssurf: number              // Surface severity (0-1)
+    Sdens: number              // Density severity (0-1)
+    Sgrav: number              // Gravity severity (0-1)
+    Sdisp: number              // Dispersion severity (0-1)
+  }
+  category: {
+    label: string              // e.g., "Moderate", "Severe"
+    color: string              // Hex color code
+  }
+  stats: {
+    crop_size: number
+    veg_pixels: number
+    veg_ratio: number          // 0-1
+  }
+}
+```
+
+**Note**: ngrok URLs change frequently - update `.env.local` when the backend URLs change.
 
 ## Developer Workflow
 

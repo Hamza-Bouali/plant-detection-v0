@@ -9,10 +9,16 @@ import { AnalysisPanel } from "@/components/analysis-panel"
 import { ClassificationPanel } from "@/components/classification-panel"
 import { SegmentationPanel } from "@/components/segmentation-panel"
 import { RecommendationPanel } from "@/components/recommendation-panel"
-import { classifyImageBase64, type ClassificationResult } from "@/lib/api"
+import { 
+  classifyImageBase64, 
+  segmentImageBase64,
+  type ClassificationResult, 
+  type SegmentationResult 
+} from "@/lib/api"
 
 export interface AnalysisResult {
   classification: ClassificationResult | null
+  segmentation: SegmentationResult | null
   error: string | null
 }
 
@@ -21,20 +27,31 @@ function DashboardContent() {
   const [analyzed, setAnalyzed] = useState(false)
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult>({
     classification: null,
+    segmentation: null,
     error: null,
   })
 
   const startAnalysis = async (imageBase64: string) => {
     setIsAnalyzing(true)
-    setAnalysisResult({ classification: null, error: null })
+    setAnalysisResult({ classification: null, segmentation: null, error: null })
 
     try {
-      const result = await classifyImageBase64(imageBase64)
-      setAnalysisResult({ classification: result, error: null })
+      // Run both APIs in parallel
+      const [classificationResult, segmentationResult] = await Promise.all([
+        classifyImageBase64(imageBase64),
+        segmentImageBase64(imageBase64),
+      ])
+      
+      setAnalysisResult({ 
+        classification: classificationResult, 
+        segmentation: segmentationResult,
+        error: null 
+      })
       setAnalyzed(true)
     } catch (error) {
       setAnalysisResult({ 
         classification: null, 
+        segmentation: null,
         error: error instanceof Error ? error.message : "Analysis failed" 
       })
     } finally {
@@ -103,8 +120,11 @@ function DashboardContent() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ClassificationPanel result={analysisResult.classification} />
-              <SegmentationPanel />
-              <RecommendationPanel result={analysisResult.classification} />
+              <SegmentationPanel result={analysisResult.segmentation} />
+              <RecommendationPanel 
+                classification={analysisResult.classification} 
+                segmentation={analysisResult.segmentation}
+              />
             </div>
           )}
         </div>

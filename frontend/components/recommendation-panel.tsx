@@ -1,9 +1,9 @@
-import { Zap, CheckCircle2, FileText, ChevronRight, Leaf } from "lucide-react"
+import { Zap, CheckCircle2, FileText, ChevronRight, Leaf, AlertTriangle } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts"
-import { type ClassificationResult } from "@/lib/api"
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from "recharts"
+import { type ClassificationResult, type SegmentationResult } from "@/lib/api"
 
 // Disease-specific recommendations database
 const diseaseRecommendations: Record<string, {
@@ -11,47 +11,55 @@ const diseaseRecommendations: Record<string, {
   description: string
   followUp: string
   riskFactors: string
-  priority: "Low" | "Moderate" | "Urgent" | "Critical"
 }> = {
   default_disease: {
     action: "Consult Agricultural Expert",
     description: "A plant disease has been detected. Please consult with a local agricultural extension service for specific treatment recommendations based on your crop type and local conditions.",
     followUp: "Monitor the affected plants daily for progression.",
     riskFactors: "Environmental stress and poor growing conditions may accelerate disease spread.",
-    priority: "Moderate",
   },
   healthy: {
     action: "Continue Regular Maintenance",
     description: "Your plant appears healthy! Continue with regular watering, fertilization, and monitoring schedules. Maintain good agricultural practices to prevent future disease outbreaks.",
     followUp: "Routine inspection every 7-14 days.",
     riskFactors: "Seasonal changes may increase disease susceptibility.",
-    priority: "Low",
   },
 }
 
 interface RecommendationPanelProps {
-  result: ClassificationResult | null
+  classification: ClassificationResult | null
+  segmentation: SegmentationResult | null
 }
 
-export function RecommendationPanel({ result }: RecommendationPanelProps) {
-  if (!result) return null
+export function RecommendationPanel({ classification, segmentation }: RecommendationPanelProps) {
+  if (!classification) return null
 
-  const isHealthy = result.predicted_label.toLowerCase().includes("healthy")
+  const isHealthy = classification.predicted_label.toLowerCase().includes("healthy")
   const recommendation = isHealthy 
     ? diseaseRecommendations.healthy 
     : diseaseRecommendations.default_disease
 
-  const confidencePercent = Math.round(result.top_3[0]?.score * 100 || 0)
-  const predictedClassName = result.predicted_label.replace(/_/g, " ")
+  const confidencePercent = Math.round(classification.top_3[0]?.score * 100 || 0)
+  const predictedClassName = classification.predicted_label.replace(/_/g, " ")
+  
+  // Determine priority based on severity score if available
+  const severityScore = segmentation?.severity.severity_score || 0
+  const getPriority = (): "Low" | "Moderate" | "Urgent" | "Critical" => {
+    if (isHealthy) return "Low"
+    if (severityScore < 25) return "Moderate"
+    if (severityScore < 50) return "Urgent"
+    if (severityScore < 75) return "Urgent"
+    return "Critical"
+  }
+  const priority = getPriority()
 
-  // Generate mock severity data based on confidence
-  const severityHistory = [
-    { date: "Day 1", score: Math.round(confidencePercent * 0.3) },
-    { date: "Day 3", score: Math.round(confidencePercent * 0.5) },
-    { date: "Day 5", score: Math.round(confidencePercent * 0.7) },
-    { date: "Day 7", score: Math.round(confidencePercent * 0.85) },
-    { date: "Today", score: confidencePercent },
-  ]
+  // Severity breakdown chart data
+  const severityData = segmentation ? [
+    { name: "Surface", value: Math.round(segmentation.severity.Ssurf * 100), color: "#3b82f6" },
+    { name: "Density", value: Math.round(segmentation.severity.Sdens * 100), color: "#8b5cf6" },
+    { name: "Gravity", value: Math.round(segmentation.severity.Sgrav * 100), color: "#f59e0b" },
+    { name: "Dispersion", value: Math.round(segmentation.severity.Sdisp * 100), color: "#ef4444" },
+  ] : []
 
   const priorityColors: Record<string, string> = {
     Low: "bg-green-500 text-white",
@@ -70,18 +78,20 @@ export function RecommendationPanel({ result }: RecommendationPanelProps) {
           </CardTitle>
           <CardDescription>Automated decision support for {predictedClassName}</CardDescription>
         </div>
-        <Badge className={`font-bold px-4 py-1 ${priorityColors[recommendation.priority]}`}>
-          Priority: {recommendation.priority}
+        <Badge className={`font-bold px-4 py-1 ${priorityColors[priority]}`}>
+          Priority: {priority}
         </Badge>
       </CardHeader>
       <CardContent className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <div className="flex gap-4">
             <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${
-              isHealthy ? "bg-green-500/20" : "bg-primary/20"
+              isHealthy ? "bg-green-500/20" : priority === "Critical" ? "bg-red-500/20" : "bg-primary/20"
             }`}>
               {isHealthy ? (
                 <Leaf className="w-6 h-6 text-green-600" />
+              ) : priority === "Critical" ? (
+                <AlertTriangle className="w-6 h-6 text-red-500" />
               ) : (
                 <CheckCircle2 className="w-6 h-6 text-primary" />
               )}
@@ -90,6 +100,12 @@ export function RecommendationPanel({ result }: RecommendationPanelProps) {
               <h4 className="text-lg font-bold">Recommended Action: {recommendation.action}</h4>
               <p className="text-muted-foreground text-sm leading-relaxed">
                 {recommendation.description}
+                {segmentation && !isHealthy && (
+                  <span className="block mt-2 text-foreground font-medium">
+                    Severity Score: {Math.round(segmentation.severity.severity_score)}/100 
+                    ({segmentation.category.label})
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -107,32 +123,48 @@ export function RecommendationPanel({ result }: RecommendationPanelProps) {
         </div>
 
         <div className="space-y-4 lg:border-l lg:border-border lg:pl-8">
-          <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Confidence Trend</h4>
-          <div className="h-[150px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={severityHistory}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
-                <XAxis dataKey="date" hide />
-                <YAxis hide domain={[0, 100]} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "var(--color-card)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "8px",
-                  }}
-                  itemStyle={{ color: "var(--color-primary)" }}
-                  formatter={(value: number) => [`${value}%`, "Score"]}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="score"
-                  stroke={isHealthy ? "var(--color-green-500)" : "var(--color-primary)"}
-                  strokeWidth={3}
-                  dot={{ fill: isHealthy ? "var(--color-green-500)" : "var(--color-primary)", r: 4 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-widest">
+            {segmentation ? "Severity Breakdown" : "Confidence"}
+          </h4>
+          {segmentation ? (
+            <div className="h-[150px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={severityData} layout="vertical" margin={{ left: 10, right: 20 }}>
+                  <XAxis type="number" domain={[0, 100]} hide />
+                  <YAxis 
+                    dataKey="name" 
+                    type="category" 
+                    width={70} 
+                    axisLine={false} 
+                    tickLine={false}
+                    style={{ fontSize: "11px" }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "var(--color-card)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: "8px",
+                    }}
+                    formatter={(value: number) => [`${value}%`, "Score"]}
+                  />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={16}>
+                    {severityData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-[150px]">
+              <div className="text-center">
+                <p className={`text-5xl font-black ${isHealthy ? "text-green-500" : "text-primary"}`}>
+                  {confidencePercent}%
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">Classification Confidence</p>
+              </div>
+            </div>
+          )}
           <div className="pt-2">
             <Button variant="secondary" className="w-full gap-2 text-sm font-bold">
               <FileText className="w-4 h-4" /> Generate Report

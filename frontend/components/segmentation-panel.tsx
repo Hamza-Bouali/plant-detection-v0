@@ -1,6 +1,10 @@
-import { Maximize2 } from "lucide-react"
+"use client"
+
+import { useState } from "react"
+import { Maximize2, Image as ImageIcon } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { type SegmentationResult } from "@/lib/api"
 
 interface SegmentationPanelProps {
@@ -102,6 +106,50 @@ export function SegmentationPanel({ result }: SegmentationPanelProps) {
             />
           </div>
         </div>
+
+        {/* Segmentation Images */}
+        {result.images && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <ImageIcon className="w-4 h-4 text-muted-foreground" />
+              <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Segmentation Visualization</h4>
+            </div>
+            <Tabs defaultValue="overlay" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="original">Original</TabsTrigger>
+                <TabsTrigger value="mask">Mask</TabsTrigger>
+                <TabsTrigger value="overlay">Overlay</TabsTrigger>
+              </TabsList>
+              <TabsContent value="original" className="mt-3">
+                <div className="rounded-lg overflow-hidden border border-border/50">
+                  <img 
+                    src={`data:image/png;base64,${result.images.original}`}
+                    alt="Original image"
+                    className="w-full h-auto object-contain"
+                  />
+                </div>
+              </TabsContent>
+              <TabsContent value="mask" className="mt-3">
+                <div className="rounded-lg overflow-hidden border border-border/50">
+                  <img 
+                    src={`data:image/png;base64,${result.images.mask}`}
+                    alt="Segmentation mask"
+                    className="w-full h-auto object-contain"
+                  />
+                </div>
+              </TabsContent>
+              <TabsContent value="overlay" className="mt-3">
+                <div className="rounded-lg overflow-hidden border border-border/50">
+                  <img 
+                    src={`data:image/png;base64,${result.images.overlay}`}
+                    alt="Overlay visualization"
+                    className="w-full h-auto object-contain"
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

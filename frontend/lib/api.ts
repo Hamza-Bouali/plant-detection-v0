@@ -35,10 +35,17 @@ export interface Stats {
   veg_ratio: number
 }
 
+export interface OutputImages {
+  original: string   // Base64 encoded original image
+  mask: string       // Base64 encoded segmentation mask
+  overlay: string    // Base64 encoded overlay visualization
+}
+
 export interface SegmentationResult {
   severity: SeverityDetails
   category: Category
   stats: Stats
+  images: OutputImages
 }
 
 export interface ApiError {

@@ -4,7 +4,7 @@ Create a file named `.env.local` in `plant-detection-v0/frontend/` with:
 
 ```env
 # Backend image-classification API (your FastAPI/ngrok URL)
-NEXT_PUBLIC_API_URL="https://popular-light-ocelot.ngrok-free.app"
+NEXT_PUBLIC_API_URL="https://tamie-windproof-lino.ngrok-free.dev"
 
 # Gemini API key (server-side only; never expose as NEXT_PUBLIC_*)
 # OpenAI API key (server-side only; never expose as NEXT_PUBLIC_*)

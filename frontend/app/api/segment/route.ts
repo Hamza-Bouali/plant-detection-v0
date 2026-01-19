@@ -12,21 +12,19 @@ export async function POST(request: NextRequest) {
       imageBase64 = imageBase64.split(",")[1]
     }
     
-    // Convert base64 to buffer for multipart/form-data (Node.js runtime)
+    // Convert base64 to buffer and create proper multipart/form-data
     const buffer = Buffer.from(imageBase64, "base64")
     const blob = new Blob([buffer], { type: "image/jpeg" })
     
-    // Create FormData with file field (as per OpenAPI spec)
     const formData = new FormData()
     formData.append("file", blob, "image.jpg")
     
-    // Try adding Accept header to request JSON response
-    const response = await fetch(`${SEGMENTATION_API_URL}/predict`, {
+    // Add size query parameter as required by the API
+    const response = await fetch(`${SEGMENTATION_API_URL}/predict?size=384`, {
       method: "POST",
       headers: {
-        "Accept": "application/json",
         "ngrok-skip-browser-warning": "1",
-        // Note: Don't set Content-Type for FormData - browser sets it with boundary
+        // Don't set Content-Type - let fetch set it with boundary
       },
       body: formData,
     })
@@ -39,18 +37,37 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if response is JSON or binary (PNG/image)
-    const contentType = response.headers.get("content-type")
-    if (contentType?.includes("image")) {
-      // API returned an image instead of JSON - this might be the mask/overlay
-      console.error("Segmentation API returned image, expected JSON")
-      return NextResponse.json(
-        { error: "API returned image instead of JSON response" },
-        { status: 500 }
-      )
+    // The API returns a PNG image (the mask), not JSON
+    // We need to convert it to base64 and construct a mock SegmentationResult
+    const imageBuffer = await response.arrayBuffer()
+    const maskBase64 = Buffer.from(imageBuffer).toString("base64")
+    
+    // Create a response that matches our SegmentationResult interface
+    // Note: This is a simplified response since the API only returns the mask
+    const data = {
+      severity: {
+        severity_score: 0,
+        Ssurf: 0,
+        Sdens: 0,
+        Sgrav: 0,
+        Sdisp: 0,
+      },
+      category: {
+        label: "Unknown",
+        color: "#808080",
+      },
+      stats: {
+        crop_size: 0,
+        veg_pixels: 0,
+        veg_ratio: 0,
+      },
+      images: {
+        original: imageBase64,
+        mask: maskBase64,
+        overlay: maskBase64, // Use mask as overlay since we only have the mask
+      },
     }
-
-    const data = await response.json()
+    
     return NextResponse.json(data)
   } catch (error) {
     console.error("Segmentation API error:", error)

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://popular-light-ocelot.ngrok-free.app"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://tamie-windproof-lino.ngrok-free.dev"
 
 function extractScore(value: unknown): number {
   if (typeof value === "number" && Number.isFinite(value)) {

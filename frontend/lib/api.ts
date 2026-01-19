@@ -1,6 +1,6 @@
 // API Configuration
 // Update these URLs when your ngrok/backend URLs change
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://popular-light-ocelot.ngrok-free.app"
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://tamie-windproof-lino.ngrok-free.dev"
 export const SEGMENTATION_API_URL = process.env.NEXT_PUBLIC_SEGMENTATION_API_URL || "https://alive-cheetah-precisely.ngrok-free.app"
 
 export interface TopPrediction {
@@ -112,12 +112,17 @@ export async function classifyImageFile(file: File): Promise<ClassificationResul
  * Uses local proxy to bypass CORS issues with ngrok
  */
 export async function segmentImageBase64(imageBase64: string): Promise<SegmentationResult> {
+  // Remove data URL prefix if present (e.g., "data:image/jpeg;base64,")
+  const base64Data = imageBase64.includes(",") 
+    ? imageBase64.split(",")[1] 
+    : imageBase64
+
   const response = await fetch("/api/segment", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ image_base64: imageBase64 }),
+    body: JSON.stringify({ image_base64: base64Data }),
   })
 
   if (!response.ok) {

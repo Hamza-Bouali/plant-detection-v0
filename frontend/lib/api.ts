@@ -13,6 +13,7 @@ export interface ClassificationResult {
   predicted_class: string
   predicted_label: string
   top_3: TopPrediction[]
+  summary?: string
 }
 
 // Segmentation API types
@@ -85,8 +86,14 @@ export async function classifyImageBase64(imageBase64: string): Promise<Classifi
   })
 
   if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.detail || "Classification failed")
+    let message = "Classification failed"
+    try {
+      const error = await response.json()
+      message = error.error || error.detail || message
+    } catch {
+      // Ignore JSON parse errors and use default message
+    }
+    throw new Error(message)
   }
 
   return response.json()
@@ -96,23 +103,8 @@ export async function classifyImageBase64(imageBase64: string): Promise<Classifi
  * Send image file for classification using multipart form data
  */
 export async function classifyImageFile(file: File): Promise<ClassificationResult> {
-  const formData = new FormData()
-  formData.append("file", file)
-
-  const response = await fetch(`${API_BASE_URL}/predict`, {
-    method: "POST",
-    headers: {
-      "ngrok-skip-browser-warning": "1",
-    },
-    body: formData,
-  })
-
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.detail || "Classification failed")
-  }
-
-  return response.json()
+  const base64 = await fileToBase64(file)
+  return classifyImageBase64(base64)
 }
 
 /**
@@ -129,8 +121,14 @@ export async function segmentImageBase64(imageBase64: string): Promise<Segmentat
   })
 
   if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.detail || "Segmentation failed")
+    let message = "Segmentation failed"
+    try {
+      const error = await response.json()
+      message = error.error || error.detail || message
+    } catch {
+      // Ignore JSON parse errors and use default message
+    }
+    throw new Error(message)
   }
 
   return response.json()
@@ -148,4 +146,20 @@ export async function checkSegmentationHealth(): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error("Failed to read file"))
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result === "string") {
+        resolve(result.includes(",") ? result.split(",")[1] : result)
+      } else {
+        reject(new Error("Unexpected file reader result"))
+      }
+    }
+    reader.readAsDataURL(file)
+  })
 }

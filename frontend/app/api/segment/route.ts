@@ -12,13 +12,23 @@ export async function POST(request: NextRequest) {
       imageBase64 = imageBase64.split(",")[1]
     }
     
+    // Convert base64 to buffer for multipart/form-data (Node.js runtime)
+    const buffer = Buffer.from(imageBase64, "base64")
+    const blob = new Blob([buffer], { type: "image/jpeg" })
+    
+    // Create FormData with file field (as per OpenAPI spec)
+    const formData = new FormData()
+    formData.append("file", blob, "image.jpg")
+    
+    // Try adding Accept header to request JSON response
     const response = await fetch(`${SEGMENTATION_API_URL}/predict`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Accept": "application/json",
         "ngrok-skip-browser-warning": "1",
+        // Note: Don't set Content-Type for FormData - browser sets it with boundary
       },
-      body: JSON.stringify({ image_base64: imageBase64 }),
+      body: formData,
     })
 
     if (!response.ok) {
@@ -26,6 +36,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: error || "Segmentation failed" },
         { status: response.status }
+      )
+    }
+
+    // Check if response is JSON or binary (PNG/image)
+    const contentType = response.headers.get("content-type")
+    if (contentType?.includes("image")) {
+      // API returned an image instead of JSON - this might be the mask/overlay
+      console.error("Segmentation API returned image, expected JSON")
+      return NextResponse.json(
+        { error: "API returned image instead of JSON response" },
+        { status: 500 }
       )
     }
 

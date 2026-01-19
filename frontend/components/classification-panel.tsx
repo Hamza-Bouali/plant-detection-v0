@@ -44,7 +44,10 @@ export function ClassificationPanel({ result }: ClassificationPanelProps) {
             {isHealthy ? "Healthy" : "Disease Detected"}
           </Badge>
           <h3 className="text-3xl font-black text-foreground">{predictedClassName}</h3>
-          <div className="mt-4 flex flex-col items-center">
+          {result.summary && (
+            <p className="mt-2 text-sm text-muted-foreground">{result.summary}</p>
+          )}
+        <div className="mt-4 flex flex-col items-center">
             <span className="text-sm font-medium text-muted-foreground mb-1">Confidence Score</span>
             <div className={`text-5xl font-black ${isHealthy ? "text-green-600" : "text-primary"}`}>
               {confidencePercent}<span className="text-2xl">%</span>
